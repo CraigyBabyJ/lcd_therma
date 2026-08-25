@@ -134,7 +134,9 @@ class LyPanel:
         send_buf = self._build_chunks(jpeg_bytes)
         for i in range(0, len(send_buf), _USB_WRITE_SIZE):
             self.dev.write(EP_OUT, send_buf[i:i + _USB_WRITE_SIZE], timeout=self.timeout_ms)
-        self.dev.read(EP_IN, _ACK_SIZE, timeout=self.timeout_ms)
+        resp = self.dev.read(EP_IN, _ACK_SIZE, timeout=self.timeout_ms)
+        if len(resp) != _ACK_SIZE:
+            print(f"LY frame ACK unexpected length: {len(resp)} (expected {_ACK_SIZE})")
 
 
 # --- Data sources (ported unchanged from ../LCD/server_lcd_stats.py) ---
