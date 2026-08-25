@@ -1,0 +1,5 @@
+# udev rule so the panel is writable by a normal user (not just root).
+# Install with:
+#   sudo cp lcd_therma.rules /etc/udev/rules.d/99-lcd-therma.rules
+#   sudo udevadm control --reload-rules && sudo udevadm trigger
+SUBSYSTEM=="usb", ATTR{idVendor}=="0416", ATTR{idProduct}=="5408", MODE="0666"

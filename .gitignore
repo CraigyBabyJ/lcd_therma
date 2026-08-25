@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Local config and secrets
+.env
+.env.*
+!.env.example
+
+# Runtime logs and generated data
+*.log
+lcd.log
+*.pid
+
+# Editor / agent local state
+.claude/
+.vscode/
+.idea/
+
+# OS clutter
+.DS_Store
+Thumbs.db
+
