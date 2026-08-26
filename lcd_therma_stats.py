@@ -973,13 +973,19 @@ def main():
         except KeyboardInterrupt:
             log("Stopped.")
             break
-        except usb.core.USBError as e:
-            log(f"USB error, reopening panel: {e!r}")
+        except (usb.core.USBError, RuntimeError, AttributeError) as e:
+            # RuntimeError: panel.open() raises this when the device isn't
+            # found (e.g. mid unplug/replug). AttributeError: panel.dev is
+            # None because a prior open() failed - without catching these
+            # too, only a clean USBError would trigger a reopen attempt,
+            # and any other failure mode would just log forever without
+            # ever retrying (observed when the panel moved USB ports).
+            log(f"Panel unusable, reopening: {e!r}")
             panel.close()
             time.sleep(2.0)
             try:
                 panel.open()
-                log("Panel reopened OK after USB error.")
+                log("Panel reopened OK.")
             except Exception as e2:
                 log(f"Reopen failed: {e2!r}")
                 time.sleep(2.0)
