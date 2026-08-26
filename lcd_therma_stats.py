@@ -14,6 +14,15 @@ import usb.core
 import usb.util
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
+
+def log(msg):
+    """StandardOutput=append in the systemd unit writes raw stdout straight
+    to a file, bypassing journald's own timestamps - so without this, the
+    log has no timing info at all, making it impossible to correlate a
+    problem with anything else going on at the same moment."""
+    print(f"{time.strftime('%Y-%m-%d %H:%M:%S')} {msg}", flush=True)
+
+
 # --- Panel / transport ---
 # Thermalright Trofeo Vision 9.16" ultrawide (VID:PID 0416:5408), "LY" USB bulk
 # transport. Protocol ported from the open-source thermalright-lcd-control
@@ -84,12 +93,14 @@ class LyPanel:
         resp = bytes(self.dev.read(EP_IN, _ACK_SIZE, timeout=self.timeout_ms))
         ok = len(resp) >= 9 and resp[0] == 3 and resp[1] == 0xFF and resp[8] == 1
         if not ok:
-            print(
+            log(
                 f"LY handshake unexpected response (len={len(resp)}, "
                 f"[0]={resp[0] if resp else None}, "
                 f"[1]={resp[1] if len(resp) > 1 else None}, "
                 f"[8]={resp[8] if len(resp) > 8 else None})"
             )
+        else:
+            log("LY handshake OK")
         self._handshaked = True
 
     def _build_chunks(self, payload: bytes) -> bytes:
@@ -132,11 +143,13 @@ class LyPanel:
         jpeg_bytes = buf.getvalue()
 
         send_buf = self._build_chunks(jpeg_bytes)
+        t0 = time.time()
         for i in range(0, len(send_buf), _USB_WRITE_SIZE):
             self.dev.write(EP_OUT, send_buf[i:i + _USB_WRITE_SIZE], timeout=self.timeout_ms)
         resp = self.dev.read(EP_IN, _ACK_SIZE, timeout=self.timeout_ms)
         if len(resp) != _ACK_SIZE:
-            print(f"LY frame ACK unexpected length: {len(resp)} (expected {_ACK_SIZE})")
+            log(f"LY frame ACK unexpected length: {len(resp)} (expected {_ACK_SIZE})")
+        log(f"Frame sent OK ({len(jpeg_bytes)} bytes JPEG, {len(send_buf)} bytes wire, {time.time() - t0:.2f}s)")
 
 
 # --- Data sources (ported unchanged from ../LCD/server_lcd_stats.py) ---
@@ -809,10 +822,10 @@ def _schedule_fetch(key, fn):
 
 
 def main():
-    print(f"Opening Trofeo Vision panel {VID:04x}:{PID:04x}...")
+    log(f"Opening Trofeo Vision panel {VID:04x}:{PID:04x}...")
     panel = LyPanel()
     panel.open()
-    print("Panel opened.")
+    log("Panel opened.")
 
     psutil.cpu_percent(interval=None)
     prev_net = get_net_counters()
@@ -906,6 +919,7 @@ def main():
 
             if now - last_btc_fetch_time >= BTC_REFRESH_SECONDS or last_btc_fetch_time == 0:
                 last_btc_fetch_time = now
+                log("Scheduling BTC/ETH price fetch (10-min interval)")
                 _schedule_fetch("btc", fetch_btc_price)
                 _schedule_fetch("eth", fetch_eth_price)
             if now - last_agents_fetch_time >= AGENTS_ONLINE_REFRESH_SECONDS or last_agents_fetch_time == 0:
@@ -957,19 +971,20 @@ def main():
             time.sleep(SAMPLE_SECONDS)
 
         except KeyboardInterrupt:
-            print("\nStopped.")
+            log("Stopped.")
             break
         except usb.core.USBError as e:
-            print(f"USB error, reopening panel: {e}")
+            log(f"USB error, reopening panel: {e!r}")
             panel.close()
             time.sleep(2.0)
             try:
                 panel.open()
+                log("Panel reopened OK after USB error.")
             except Exception as e2:
-                print(f"Reopen failed: {e2}")
+                log(f"Reopen failed: {e2!r}")
                 time.sleep(2.0)
         except Exception as e:
-            print("Update failed:", e)
+            log(f"Update failed: {e!r}")
             time.sleep(1.0)
 
     panel.close()
