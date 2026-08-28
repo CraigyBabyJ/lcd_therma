@@ -805,7 +805,9 @@ def render_frame(state):
     y += row_h
     _stat(draw, img, x2, y, "Landings", state.get("bml_lnds", "--"))
     _stat(draw, img, x2 + right_off, y, "Latest traffic", state.get("traffic", "--"), label_font=LABEL_FONT, value_font=SMALL_LABEL_FONT)
-    y += row_h
+    y += row_h - 20
+    draw.line([(x2, y), (3 * COL_W - pad, y)], fill=LABEL_COLOR, width=1)
+    y += 20
     _stat(draw, img, x2, y, "Clicks (7d)", state.get("seo_clicks", "--"), value_font=MEDIUM_VALUE_FONT)
     _stat(draw, img, x2 + right_off, y, "Impressions", state.get("seo_impressions", "--"), value_font=MEDIUM_VALUE_FONT)
 
