@@ -79,6 +79,7 @@ class LyPanel:
         usb.util.claim_interface(dev, 0)
         self.dev = dev
         self._handshaked = False
+        self._recover_endpoints()
 
     def close(self):
         if self.dev is not None:
@@ -86,9 +87,31 @@ class LyPanel:
                 usb.util.release_interface(self.dev, 0)
             except usb.core.USBError:
                 pass
+            try:
+                usb.util.dispose_resources(self.dev)
+            except usb.core.USBError:
+                pass
             self.dev = None
 
+    def _recover_endpoints(self):
+        for ep in (EP_OUT, EP_IN):
+            try:
+                self.dev.clear_halt(ep)
+            except usb.core.USBError:
+                pass
+        self._drain_in()
+
+    def _drain_in(self, max_reads=8, timeout_ms=20):
+        for _ in range(max_reads):
+            try:
+                self.dev.read(EP_IN, _ACK_SIZE, timeout=timeout_ms)
+            except usb.core.USBTimeoutError:
+                break
+            except usb.core.USBError:
+                break
+
     def _handshake(self):
+        self._drain_in()
         self.dev.write(EP_OUT, _HANDSHAKE, timeout=self.timeout_ms)
         resp = bytes(self.dev.read(EP_IN, _ACK_SIZE, timeout=self.timeout_ms))
         ok = len(resp) >= 9 and resp[0] == 3 and resp[1] == 0xFF and resp[8] == 1
@@ -769,11 +792,11 @@ def render_frame(state):
     _stat(draw, img, x1, y, "Newton Aycliffe", state.get("weather_newton", "--"), value_font=MEDIUM_VALUE_FONT)
 
     # Column 2: BeatMyLanding — total users/online/flying split out, new
-    # users/landings today paired, latest traffic, SEO clicks/impressions.
+    # users/landings today paired, latest traffic alongside landings,
+    # SEO clicks/impressions.
     x2 = 2 * COL_W + pad
-    row_h = 96
-    small_row_h = 76
-    y = (HEIGHT - (3 * row_h + 2 * small_row_h)) // 2
+    row_h = 110
+    y = (HEIGHT - 4 * row_h) // 2
     _stat(draw, img, x2, y, "Total Users", state.get("bml_total", "--"), logo=BML_LOGO)
     _stat(draw, img, x2 + right_off, y, "Online", state.get("bml_online", "--"))
     y += row_h
@@ -781,9 +804,8 @@ def render_frame(state):
     _stat(draw, img, x2 + right_off, y, "New users", state.get("bml_usrs", "--"))
     y += row_h
     _stat(draw, img, x2, y, "Landings", state.get("bml_lnds", "--"))
+    _stat(draw, img, x2 + right_off, y, "Latest traffic", state.get("traffic", "--"), label_font=LABEL_FONT, value_font=SMALL_LABEL_FONT)
     y += row_h
-    _stat(draw, img, x2, y, "Latest traffic", state.get("traffic", "--"), label_font=LABEL_FONT, value_font=SMALL_LABEL_FONT)
-    y += small_row_h
     _stat(draw, img, x2, y, "Clicks (7d)", state.get("seo_clicks", "--"), value_font=MEDIUM_VALUE_FONT)
     _stat(draw, img, x2 + right_off, y, "Impressions", state.get("seo_impressions", "--"), value_font=MEDIUM_VALUE_FONT)
 
