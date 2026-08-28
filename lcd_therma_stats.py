@@ -796,8 +796,7 @@ def render_frame(state):
     # SEO clicks/impressions.
     x2 = 2 * COL_W + pad
     row_h = 90
-    last_row_content_h = LABEL_FONT.size + 6 + VALUE_FONT.size
-    y = (HEIGHT - (3 * row_h + last_row_content_h)) // 2
+    y = 28
     _stat(draw, img, x2, y, "Total Users", state.get("bml_total", "--"), logo=BML_LOGO)
     _stat(draw, img, x2 + right_off, y, "Online", state.get("bml_online", "--"))
     y += row_h
@@ -820,8 +819,7 @@ def render_frame(state):
     # Column 3: social — Discord, YouTube, TikTok, AdSense, each a paired row.
     x3 = 3 * COL_W + pad
     row_h = 90
-    last_row_content_h = LABEL_FONT.size + 6 + VALUE_FONT.size
-    y = (HEIGHT - (3 * row_h + last_row_content_h)) // 2
+    y = 28
     _stat(draw, img, x3, y, "Online", state.get("discord_online", "--"), logo=DISCORD_LOGO)
     _stat(draw, img, x3 + right_off, y, "Members", state.get("discord_total", "--"), logo=DISCORD_LOGO)
     y += row_h
