@@ -663,7 +663,7 @@ def load_font(paths, size):
 
 LABEL_FONT = load_font(["/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"], 26)
 VALUE_FONT = load_font(["/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"], 42)
-SMALL_LABEL_FONT = load_font(["/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"], 20)
+SMALL_LABEL_FONT = load_font(["/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"], 24)
 HERO_VALUE_FONT = load_font(["/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"], 54)
 MEDIUM_VALUE_FONT = load_font(["/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"], 30)
 
@@ -805,7 +805,11 @@ def render_frame(state):
     _stat(draw, img, x2 + right_off, y, "New users", state.get("bml_usrs", "--"))
     y += row_h
     _stat(draw, img, x2, y, "Landings", state.get("bml_lnds", "--"))
-    _stat(draw, img, x2 + right_off, y, "Latest traffic", state.get("traffic", "--"), label_font=LABEL_FONT, value_font=SMALL_LABEL_FONT)
+    tx = x2 + right_off
+    draw.text((tx, y), "Latest traffic", font=LABEL_FONT, fill=LABEL_COLOR)
+    traffic_line_y = y + LABEL_FONT.size + 6
+    draw.text((tx, traffic_line_y), state.get("traffic_who", "--"), font=SMALL_LABEL_FONT, fill=VALUE_COLOR)
+    draw.text((tx, traffic_line_y + SMALL_LABEL_FONT.size + 4), state.get("traffic_where", "--"), font=SMALL_LABEL_FONT, fill=VALUE_COLOR)
     y += row_h - 20
     draw.line([(x2, y), (3 * COL_W - pad, y)], fill=LABEL_COLOR, width=1)
     y += 20
@@ -901,7 +905,8 @@ def main():
                 last_agents_online = pending["agents"]
             if "traffic" in pending:
                 t = pending["traffic"]
-                state["traffic"] = f"{t['pilot']} {t['icao']} {t['status']}"
+                state["traffic_who"] = t["pilot"]
+                state["traffic_where"] = f"{t['icao']} {t['status']}"
             if "bml_today" in pending:
                 last_bml_today = pending["bml_today"]
                 state["bml_usrs"] = str(last_bml_today["users_today"])
