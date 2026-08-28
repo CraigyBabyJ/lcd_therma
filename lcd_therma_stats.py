@@ -795,7 +795,7 @@ def render_frame(state):
     # users/landings today paired, latest traffic alongside landings,
     # SEO clicks/impressions.
     x2 = 2 * COL_W + pad
-    row_h = 114
+    row_h = 90
     last_row_content_h = LABEL_FONT.size + 6 + VALUE_FONT.size
     y = (HEIGHT - (3 * row_h + last_row_content_h)) // 2
     _stat(draw, img, x2, y, "Total Users", state.get("bml_total", "--"), logo=BML_LOGO)
@@ -810,7 +810,8 @@ def render_frame(state):
     traffic_line_y = y + LABEL_FONT.size + 6
     draw.text((tx, traffic_line_y), state.get("traffic_who", "--"), font=SMALL_LABEL_FONT, fill=VALUE_COLOR)
     draw.text((tx, traffic_line_y + SMALL_LABEL_FONT.size + 4), state.get("traffic_where", "--"), font=SMALL_LABEL_FONT, fill=VALUE_COLOR)
-    y += row_h - 20
+    traffic_block_h = LABEL_FONT.size + 6 + 2 * SMALL_LABEL_FONT.size + 4
+    y += max(row_h - 20, traffic_block_h + 10)
     draw.line([(x2, y), (3 * COL_W - pad, y)], fill=LABEL_COLOR, width=1)
     y += 20
     _stat(draw, img, x2, y, "Clicks (7d)", state.get("seo_clicks", "--"))
@@ -818,7 +819,7 @@ def render_frame(state):
 
     # Column 3: social — Discord, YouTube, TikTok, AdSense, each a paired row.
     x3 = 3 * COL_W + pad
-    row_h = 114
+    row_h = 90
     last_row_content_h = LABEL_FONT.size + 6 + VALUE_FONT.size
     y = (HEIGHT - (3 * row_h + last_row_content_h)) // 2
     _stat(draw, img, x3, y, "Online", state.get("discord_online", "--"), logo=DISCORD_LOGO)
