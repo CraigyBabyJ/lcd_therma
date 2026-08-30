@@ -1,0 +1,35 @@
+#!/bin/sh
+set -eu
+
+WAN_IFACE="${LCD_WAN_IFACE:-eno1}"
+LAN_SUBNET="${LCD_LAN_SUBNET:-192.168.1.0/24}"
+
+/usr/sbin/nft delete table inet bml_lcd 2>/dev/null || true
+/usr/sbin/nft -f - <<NFT
+table inet bml_lcd {
+    counter lan_rx {}
+    counter lan_tx {}
+    counter wan_rx {}
+    counter wan_tx {}
+
+    chain input {
+        type filter hook input priority filter; policy accept;
+        iifname "$WAN_IFACE" ip saddr $LAN_SUBNET counter name lan_rx
+        iifname "$WAN_IFACE" ip saddr != $LAN_SUBNET counter name wan_rx
+    }
+
+    chain output {
+        type filter hook output priority filter; policy accept;
+        oifname "$WAN_IFACE" ip daddr $LAN_SUBNET counter name lan_tx
+        oifname "$WAN_IFACE" ip daddr != $LAN_SUBNET counter name wan_tx
+    }
+
+    chain forward {
+        type filter hook forward priority filter; policy accept;
+        iifname "$WAN_IFACE" ip saddr $LAN_SUBNET counter name lan_rx
+        iifname "$WAN_IFACE" ip saddr != $LAN_SUBNET counter name wan_rx
+        oifname "$WAN_IFACE" ip daddr $LAN_SUBNET counter name lan_tx
+        oifname "$WAN_IFACE" ip daddr != $LAN_SUBNET counter name wan_tx
+    }
+}
+NFT

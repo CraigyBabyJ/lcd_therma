@@ -28,6 +28,7 @@ Background is a subtle diagonal gradient with a soft corner vignette, built once
 - `lcd_therma_stats.py` - main display renderer, USB transport (`LyPanel`), and data fetchers
 - `lcd_therma.service` - systemd unit for running the display at boot
 - `lcd_therma.rules` - udev rule so the panel is writable by a normal user, not just root
+- `scripts/lcd-network-counters-setup` - live nftables LAN/WAN counter setup used by the shared writer service
 - `*_logo.png` - icons rendered on the display (`bml_logo.png` rasterized from BeatMyLanding's favicon SVG via `cairosvg`, one-time build step, not a runtime dependency)
 - `.env.example` - optional environment variables
 - `requirements.txt` - Python dependencies
@@ -106,6 +107,12 @@ lsusb -d 0416:5408
 
 If any of these services or credentials are unavailable, the display keeps running and shows `--`/stale values for the affected rows rather than crashing.
 
+## LAN/WAN Counters
+
+The display reads split LAN/WAN traffic counters from `/run/lcd-network-counters.json`, written by `lcd-network-counters-writer.service`.
+
+The live setup script is mirrored in `scripts/lcd-network-counters-setup`. It classifies both direct host traffic and Docker-forwarded traffic, so LAN clients using Docker-published services count against LAN rather than WAN.
+
 ## Troubleshooting
 
 If the screen stays blank:
@@ -125,4 +132,4 @@ If the screen stays blank:
    tail -80 /home/craig/projects/lcd_therma/lcd_therma.log
    ```
 
-3. USB errors mid-run (unplug/replug, power event) are caught and retried automatically — the service closes and reopens the panel handle every 2s until it reconnects, rather than crash-looping.
+3. USB errors mid-run (unplug/replug, power event) are caught and retried automatically — the service closes and reopens the panel handle every 2s until it reconnects, rather than crash-looping. If the panel is wedged rather than just momentarily gone (soft reopen keeps failing), after `LCD_RESET_AFTER_FAILURES` consecutive failures (default 5) it escalates to an actual USB port reset (`USBDEVFS_RESET`, the same recovery a physical unplug/replug gives you) before continuing to retry.

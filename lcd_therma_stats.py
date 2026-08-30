@@ -43,6 +43,14 @@ HEIGHT = 480
 SAMPLE_SECONDS = float(os.environ.get("LCD_SAMPLE_SECONDS", "2.0"))
 JPEG_QUALITY = int(os.environ.get("LCD_JPEG_QUALITY", "85"))
 
+# A plain close()+open() only re-claims the USB interface - it can't recover
+# a panel that's wedged at the controller level (observed 2026-08-29: the
+# panel dropped an I/O error, then failed every reopen with ENOENT for 3.5+
+# hours until a manual `usbreset` power-cycled the port). After this many
+# consecutive failed reopens, escalate to an actual USBDEVFS_RESET, the same
+# recovery a physical unplug/replug provides.
+RESET_AFTER_FAILURES = int(os.environ.get("LCD_RESET_AFTER_FAILURES", "5"))
+
 _CHUNK_SIZE = 512
 _CHUNK_HEADER_SIZE = 16
 _CHUNK_DATA_SIZE = 496  # _CHUNK_SIZE - _CHUNK_HEADER_SIZE
@@ -92,6 +100,16 @@ class LyPanel:
             except usb.core.USBError:
                 pass
             self.dev = None
+
+    def hard_reset(self):
+        """Issue a USBDEVFS_RESET on the port - the same recovery a physical
+        unplug/replug gives you. For when the panel is wedged rather than
+        just momentarily gone; a plain close()+open() can't fix that case."""
+        self.close()
+        dev = usb.core.find(idVendor=VID, idProduct=PID)
+        if dev is None:
+            raise RuntimeError(f"Panel {VID:04x}:{PID:04x} not found for reset")
+        dev.reset()
 
     def _recover_endpoints(self):
         for ep in (EP_OUT, EP_IN):
@@ -850,10 +868,39 @@ def _schedule_fetch(key, fn):
     threading.Thread(target=worker, daemon=True).start()
 
 
+def _open_panel_with_recovery(panel):
+    """Retry panel.open() with the same escalating-hard-reset recovery the
+    main loop uses for a mid-run drop, so a panel that's already wedged at
+    service start (e.g. right after a crash-restart) doesn't crash-loop
+    forever under systemd without ever attempting a USB port reset."""
+    failures = 0
+    while True:
+        try:
+            panel.open()
+            return
+        except Exception as e:
+            failures += 1
+            log(f"Panel open failed: {e!r}")
+            if failures >= RESET_AFTER_FAILURES:
+                log(
+                    f"{failures} consecutive open failures, forcing a USB "
+                    "port reset..."
+                )
+                try:
+                    panel.hard_reset()
+                    log("USB port reset issued.")
+                except Exception as e2:
+                    log(f"USB port reset failed: {e2!r}")
+                failures = 0
+                time.sleep(3.0)
+            else:
+                time.sleep(2.0)
+
+
 def main():
     log(f"Opening Trofeo Vision panel {VID:04x}:{PID:04x}...")
     panel = LyPanel()
-    panel.open()
+    _open_panel_with_recovery(panel)
     log("Panel opened.")
 
     psutil.cpu_percent(interval=None)
@@ -880,6 +927,7 @@ def main():
     last_eth_price = None
 
     last_sent_state = None
+    consecutive_reopen_failures = 0
 
     while True:
         try:
@@ -1016,9 +1064,24 @@ def main():
             try:
                 panel.open()
                 log("Panel reopened OK.")
+                consecutive_reopen_failures = 0
             except Exception as e2:
+                consecutive_reopen_failures += 1
                 log(f"Reopen failed: {e2!r}")
-                time.sleep(2.0)
+                if consecutive_reopen_failures >= RESET_AFTER_FAILURES:
+                    log(
+                        f"{consecutive_reopen_failures} consecutive reopen "
+                        "failures, forcing a USB port reset..."
+                    )
+                    try:
+                        panel.hard_reset()
+                        log("USB port reset issued.")
+                    except Exception as e3:
+                        log(f"USB port reset failed: {e3!r}")
+                    consecutive_reopen_failures = 0
+                    time.sleep(3.0)
+                else:
+                    time.sleep(2.0)
         except Exception as e:
             log(f"Update failed: {e!r}")
             time.sleep(1.0)
