@@ -83,7 +83,20 @@ class LyPanel:
                 dev.detach_kernel_driver(0)
         except (NotImplementedError, usb.core.USBError):
             pass
-        dev.set_configuration()
+        # Only call set_configuration() if the device isn't already
+        # configured. Re-calling it on an already-configured device makes
+        # xhci_hcd try to re-add endpoint 0x81 without dropping it first
+        # ("Trying to add endpoint 0x81 without dropping it" in dmesg),
+        # which leaves the endpoint half-reconfigured and every subsequent
+        # write/read fails with USBError(5, 'Input/Output Error') - the
+        # panel briefly recovers after a full USB port reset, then falls
+        # straight back into the same broken state on the very next reopen.
+        try:
+            already_configured = dev.get_active_configuration() is not None
+        except usb.core.USBError:
+            already_configured = False
+        if not already_configured:
+            dev.set_configuration()
         usb.util.claim_interface(dev, 0)
         self.dev = dev
         self._handshaked = False
