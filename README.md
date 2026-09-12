@@ -80,6 +80,15 @@ sudo systemctl enable --now lcd_therma.service
 
 Runs as `User=craig` — requires the udev rule to be installed first.
 
+The service also runs `scripts/lcd-wait-for-wan` before the display process.
+This checks real DNS and outbound HTTPS connectivity because
+`network-online.target` can be reached while the router/WAN is still coming
+back after a reboot. Without the gate, long-refresh sources such as YouTube,
+TikTok, weather, Bitcoin, AdSense, and Search Console can stay blank until
+their next scheduled refresh. The check host, URL, and retry delay can be
+overridden with `LCD_WAN_DNS_HOST`, `LCD_WAN_CHECK_URL`, and
+`LCD_WAN_RETRY_SECONDS`.
+
 Logs are written to:
 
 ```text

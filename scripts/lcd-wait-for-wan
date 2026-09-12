@@ -1,0 +1,28 @@
+#!/bin/sh
+set -eu
+
+# network-online.target only guarantees that NetworkManager considers an
+# interface configured.  After a host/router restart, DNS and the real
+# Internet route can still be unavailable for a while.  The LCD's slower data
+# sources (YouTube, TikTok, weather, Google, etc.) otherwise fail their first
+# fetch and remain blank until their next long refresh interval.
+dns_host="${LCD_WAN_DNS_HOST:-api.coingecko.com}"
+check_url="${LCD_WAN_CHECK_URL:-https://www.gstatic.com/generate_204}"
+retry_seconds="${LCD_WAN_RETRY_SECONDS:-2}"
+attempt=0
+
+echo "Waiting for LCD WAN readiness (DNS: ${dns_host}, HTTPS: ${check_url})..."
+
+while ! {
+    /usr/bin/getent ahostsv4 "$dns_host" >/dev/null 2>&1 &&
+    /usr/bin/curl -4 --fail --silent --output /dev/null \
+        --connect-timeout 3 --max-time 5 "$check_url"
+}; do
+    attempt=$((attempt + 1))
+    if [ $((attempt % 15)) -eq 0 ]; then
+        echo "LCD WAN still unavailable after ${attempt} checks; retrying..."
+    fi
+    /usr/bin/sleep "$retry_seconds"
+done
+
+echo "LCD WAN is ready."
