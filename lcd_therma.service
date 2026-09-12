@@ -13,11 +13,9 @@ Environment=VIRTUAL_ENV=/home/craig/projects/lcd_therma/venv
 Environment=PATH=/home/craig/projects/lcd_therma/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin
 Environment=PYTHONUNBUFFERED=1
 EnvironmentFile=-/home/craig/projects/lcd_therma/.env
-ExecStartPre=/home/craig/projects/lcd_therma/scripts/lcd-wait-for-wan
 ExecStart=/home/craig/projects/lcd_therma/venv/bin/python /home/craig/projects/lcd_therma/lcd_therma_stats.py
 Restart=on-failure
 RestartSec=5
-TimeoutStartSec=infinity
 StandardOutput=append:/home/craig/projects/lcd_therma/lcd_therma.log
 StandardError=append:/home/craig/projects/lcd_therma/lcd_therma.log
 

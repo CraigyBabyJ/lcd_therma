@@ -42,6 +42,10 @@ WIDTH = 1920
 HEIGHT = 480
 SAMPLE_SECONDS = float(os.environ.get("LCD_SAMPLE_SECONDS", "2.0"))
 JPEG_QUALITY = int(os.environ.get("LCD_JPEG_QUALITY", "85"))
+WAN_CHECK_URL = os.environ.get(
+    "LCD_WAN_CHECK_URL", "https://www.gstatic.com/generate_204"
+)
+WAN_RETRY_SECONDS = float(os.environ.get("LCD_WAN_RETRY_SECONDS", "2"))
 
 # A plain close()+open() only re-claims the USB interface - it can't recover
 # a panel that's wedged at the controller level (observed 2026-08-29: the
@@ -211,6 +215,26 @@ class LyPanel:
 BG_COLOR = (10, 12, 18)
 LABEL_COLOR = (150, 160, 175)
 VALUE_COLOR = (255, 255, 255)
+
+
+def wait_for_wan():
+    """Wait for working DNS/WAN before the first long-refresh fetches."""
+    log(f"Waiting for valid DNS/WAN ({WAN_CHECK_URL})...")
+    attempts = 0
+    while True:
+        try:
+            response = requests.get(WAN_CHECK_URL, timeout=5)
+            response.raise_for_status()
+            log("DNS/WAN is ready.")
+            return
+        except requests.RequestException as exc:
+            attempts += 1
+            if attempts % 15 == 0:
+                log(
+                    f"DNS/WAN still unavailable after {attempts} checks "
+                    f"({type(exc).__name__}); retrying..."
+                )
+            time.sleep(WAN_RETRY_SECONDS)
 
 BTC_CURRENCY = "gbp"
 BTC_REFRESH_SECONDS = 600
@@ -911,6 +935,7 @@ def _open_panel_with_recovery(panel):
 
 
 def main():
+    wait_for_wan()
     log(f"Opening Trofeo Vision panel {VID:04x}:{PID:04x}...")
     panel = LyPanel()
     _open_panel_with_recovery(panel)
